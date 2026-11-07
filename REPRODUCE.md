@@ -143,36 +143,36 @@ airbnb-price-prediction/
 |---|---|
 | `README.md` | Provides an overview of the project and basic repository instructions. |
 | `requirements.txt` | Lists the Python packages and their pinned versions required by the project. |
-| `reproduce.py` | [TODO: Describe the reproduction script after its implementation is finalized.] |
-| `notebooks/` | Contains the Jupyter Notebook used for data analysis, model development, evaluation, and visualization. |
+| `reproduce.py` | Runs the main training and evaluation pipeline using the fixed hyperparameters documented in this guide. |
+| `notebooks/` | 	Contains the complete research notebook, including exploratory analysis, preprocessing, hyperparameter optimization, model evaluation, and supplementary analyses. |
 | `data/raw/` | Stores the original dataset used in the study. |
 | `data/processed/` | Reserved for processed datasets generated during preprocessing. |
-| `configs/` | Reserved for configuration files and experiment settings. |
+| `configs/` | Reserved for external configuration files. Final hyperparameters are currently defined directly in `reproduce.py`. |
 | `outputs/tables/` | Stores generated result tables. |
 | `outputs/figures/` | Stores generated figures and visualizations. |
 | `outputs/metrics/` | Stores model evaluation metrics and related numerical results. |
 | `checkpoints/` | Reserved for saved model checkpoints or trained model artifacts. |
 
-The main analysis notebook is `notebooks/Full_notebookk.ipynb`. It contains the workflow used in the research, while the reproduction script is maintained separately.
+The complete research workflow is documented in `notebooks/Full_notebookk.ipynb`, which serves as the primary reference for the original experiments and supplementary analyses. The separate `reproduce.py` script provides a shorter reproduction pipeline using the fixed hyperparameters selected during the research phase.
 
 ---
 # 3. Hardware & Software Requirements
 
 ## 3.1 Hardware Requirements
 
-The project was developed and executed using Google Colab. 
-The following hardware is recommended:
+The project was developed and executed using Google Colab. Since Colab allocates computational resources dynamically, the actual hardware configuration may vary between sessions.
 
-- CPU: Multi-core processor
-- RAM: At least 8 GB (16 GB recommended)
-- Storage: At least 2 GB of available space
+The following hardware is recommended for running the experiments:
+- CPU: Multi-core processor.
+- RAM: At least 8 GB (16 GB recommended).
+- Storage: At least 2 GB of available space.
 - GPU: Not required; the experiments can run on CPU.
 
 Actual execution time may vary depending on hardware and system load.
 
 ## 3.2 Software Requirements
 
-- Python: A compatible Python 3 environment
+- Python: 3.13.18
 - pip: Python package installer
 - Git: Required to clone the repository
 
@@ -258,6 +258,8 @@ The script will perform the main model evaluation and analyses, then save genera
 
 Note: The supplementary injected-shift sensitivity analysis is not included in `reproduce.py`. It must be reproduced separately using the research notebook.
 
+For the complete research workflow, including the original hyperparameter optimization and supplementary analyses, refer to `notebooks/Full_notebookk.ipynb`.
+
 ---
 # 5. Data
 
@@ -266,7 +268,7 @@ Note: The supplementary injected-shift sensitivity analysis is not included in `
 This project uses the New York City Airbnb Open Data dataset by Gomonov (2019), redistributed through Kaggle from publicly available listings collected by the Inside Airbnb project.
 
 - Dataset: New York City Airbnb Open Data
-- Original source: https://www.kaggle.com/datasets/dgomonov/new-york-city-airbnb-open-data
+- Kaggle dataset page: https://www.kaggle.com/datasets/dgomonov/new-york-city-airbnb-open-data
 - License: CC0 1.0 (Public Domain)
 - File name: `AB_NYC_2019.csv`
 - Original size: 48,895 rows × 16 columns
@@ -298,8 +300,8 @@ The following transformations are applied during preprocessing:
 **Categorical encoding and scaling**
 - One-hot encodes `neighbourhood_group` and `room_type`.
 - Drops one reference category for Linear Regression, Ridge, and Lasso; retains all indicators for tree-based models.
-- Standardizes numerical features using training-partition statistics for the linear models. Latitude and longitude are standardized for all six models.
-- Encodes `neighbourhood` using a five-fold cross-fitted target encoder. The encoder is fitted using training data only, with unseen neighbourhoods mapped to the training-target mean.
+- Standardizes numerical features using training-partition statistics for the linear models. Latitude and longitude were standardized during preprocessing for all six models. For Linear Regression, Ridge, and Lasso, an additional `StandardScaler` was applied to the complete feature matrix within the modeling pipeline. Therefore, the two geographic coordinates underwent an additional scaling step in the linear-model pipeline.
+- Encodes `neighbourhood` using a five-fold cross-fitted target encoder with automatic m-estimate smoothing. Training observations are encoded using out-of-fold estimates, while validation and test observations are transformed using an encoder fitted on the full training partition. Unseen neighbourhood categories are mapped to the training-target mean.
 
 **Geographic features**
 - Calculates Haversine distances in kilometres to:
@@ -312,7 +314,7 @@ Ten features are extracted from the listing title (`name`):
 - `n_bed_name_missing`: indicates whether the bedroom count could not be extracted.
 - Eight binary keyword indicators: `luxury`, `penthouse`, `loft`, `townhouse`, `duplex`, `cozy`, `bunk`, and `hostel`.
 
-Raw host names and listing titles are not directly used as predictors. Only the title-derived features are retained. The raw target and price-derived quantities are excluded from the predictor variables.
+Raw `host_name` and `name` text columns are not directly included as predictors. Only the numerical and binary features derived from `name` are retained. The raw target and price-derived quantities are excluded from the predictor variables.
 
 ## 5.4 Data Leakage Prevention
 
@@ -325,7 +327,7 @@ All data-dependent preprocessing steps are fitted using the relevant training pa
 
 The fitted transformations are then applied unchanged to the corresponding validation or test partition.
 
-This procedure prevents information from validation and test observations from influencing preprocessing.
+Each fitted transformation is applied unchanged to the corresponding validation or test partition. This ensures that data-dependent preprocessing parameters are estimated exclusively from the relevant training data.
 
 ## 5.5 Data Integrity
 
@@ -365,7 +367,7 @@ Hyperparameter optimization was conducted using two approaches:
 
 **Tree-based models**
 
-Randomized Search was implemented using scikit-learn's `ParameterSampler`, with 25 sampled configurations for each model:
+Randomized hyperparameter sampling was implemented using scikit-learn's `ParameterSampler`, with 25 sampled configurations for each model. Each sampled configuration was evaluated through a custom five-fold cross-validation procedure:
 
 - Random Forest
 - XGBoost
@@ -437,7 +439,8 @@ The preprocessing pipeline is implemented directly in `reproduce.py`. Its data-d
 
 One-hot encoding was configured differently for linear and tree-based models. Linear models used reference-category encoding (drop_first=True) to avoid perfect multicollinearity, whereas tree-based models retained all dummy variables (drop_first=False). Latitude and longitude were standardized during preprocessing for all models. Additionally, linear models used a StandardScaler within the modeling pipeline to standardize the complete feature matrix.
 
-All candidate configurations were evaluated using five-fold stratified cross-validation, with mean MAE on the original USD price scale as the primary selection metric. Although the target variable was log-transformed during model training, predictions were transformed back to the original price scale before MAE calculation.
+The hyperparameter search and model-selection procedures used mean cross-validation MAE measured on the original USD price scale. Predictions were transformed back from the log scale using the inverse `expm1` transformation and clipped at zero before evaluation.
+
 ---
 ## 7. Training
 
@@ -450,6 +453,8 @@ To execute the training and reproduction pipeline, run the following command fro
     python reproduce.py
 
 The pipeline evaluates the six models: Linear Regression, Ridge Regression, Lasso Regression, Random Forest, XGBoost, and Gradient Boosting. Training and evaluation are repeated using five random seeds: 42, 1, 7, 123, and 2024. Each model is trained using the corresponding training partition, with preprocessing fitted only on the relevant training data to prevent information leakage.
+
+Each split follows the 85:15 training-to-test ratio, with stratification based on quantile-based price bins.
 
 ### 7.2. Model Configuration
 
@@ -465,14 +470,232 @@ Generated results are saved in the following directories:
 
 The script does not rely on separately saved deep-learning checkpoints, epoch-based training logs, or TensorBoard/W&B tracking.
 
+The script does not save trained model checkpoints.
+
 ### 7.4. Computational Resources
 
 The experiments were conducted using Google Colab. The actual execution environment and runtime depend on the allocated Colab resources.
 
 - Environment: Google Colab.
 - CPU: x86_64.
-- RAM: 12.67.
-- GPU: Not used / unavailable.
-- Total execution time: [record actual runtime].
+- Available RAM: Approximately 12.67 GB in the recorded execution environment.
+- GPU: Not used; all experiments were executed on CPU.
+- Total execution time: approximately 4,600 seconds for `reproduce.py`.
 
 ---
+## 8. Evaluation and Inference
+
+### 8.1. Full Evaluation Workflow
+
+The complete research workflow is documented in `notebooks/Full_notebookk.ipynb`, which serves as the primary source of the experimental procedures and analysis. It covers exploratory data analysis (EDA), preprocessing, feature engineering, hyperparameter tuning, model selection, final evaluation, and supplementary analyses.
+
+To reproduce the complete study, open the notebook in Google Colab or a compatible Jupyter environment, ensure that the dataset is available at the expected path, and execute the relevant cells in their documented order. The notebook should be used to reproduce the full experimental process, including hyperparameter searches that are not repeated by the quick reproduction script.
+
+### 8.2. Quick Evaluation Workflow
+
+For a shorter verification of the main experimental pipeline, run:
+
+    python reproduce.py
+
+This script performs training and evaluation using the fixed hyperparameters documented in Section 6. It reproduces the six-model comparison across five train/test splits, RQ1 feature importance analysis, RQ2 model comparison, RQ3 segment-level deviation analysis, host-type comparisons, the StratifiedKFold versus GroupKFold comparison, and calibration analysis.
+
+The script does not repeat EDA or hyperparameter tuning. It also does not save trained model checkpoints or provide a separate evaluation-only mode. Therefore, running it again repeats the training and evaluation procedures.
+
+### 8.3. Evaluation Metrics
+
+Regression performance is evaluated using the following metrics:
+
+- **Mean Absolute Error (MAE):** Calculated using `sklearn.metrics.mean_absolute_error`; measures the average absolute prediction error in USD.
+- **Root Mean Squared Error (RMSE):** Calculated as the square root of `sklearn.metrics.mean_squared_error`; measures the prediction error in USD while assigning greater weight to larger errors.
+- **Coefficient of Determination (R²):** Calculated using `sklearn.metrics.r2_score`. The study reports R² on the original price scale, capped-price scale, and log-price scale as separate metrics.
+
+Predictions are transformed back from the log scale to the original USD scale before calculating MAE and RMSE. Model selection uses mean cross-validation MAE on the original USD scale, while final performance is evaluated on held-out test data.
+
+Results are reported for five random train/test splits, with mean and standard deviation used to summarize performance across splits.
+
+### 8.4. Statistical and Supplementary Evaluation
+
+In addition to regression performance, the study conducts the following analyses:
+
+- **Feature importance (RQ1):** Lasso coefficients, Random Forest impurity-based importance, and XGBoost gain-based importance, using the split with seed 42.
+- **Model comparison (RQ2):** Paired MAE comparisons between XGBoost and Random Forest, and between XGBoost and Gradient Boosting, across the five splits.
+- **Segment-level deviation analysis (RQ3):** Host-clustered bootstrap with 4,000 replicates, basic bootstrap confidence intervals, p-values, Holm correction, a 5% practical threshold, and cross-split direction consistency.
+- **Host-type analysis:** Multi-host versus single-host comparisons using host-clustered bootstrap with 2,000 replicates, both overall and within each room type.
+- **Cross-validation comparison:** StratifiedKFold versus GroupKFold for Random Forest, XGBoost, and Gradient Boosting, using the training partition from the split with seed 42.
+- **Calibration analysis:** An out-of-fold smearing factor estimated from XGBoost residuals and decile-level comparisons of median predictions and smearing-corrected mean predictions.
+
+The supplementary injected-shift sensitivity analysis is documented separately in the research notebook and is not included in the standard `reproduce.py` execution.
+
+### 8.5. Output Artifacts
+
+The quick reproduction script saves its generated results in the following directories:
+
+- `outputs/tables/`: per-split evaluation results, feature importance tables, segment-level results, host-type results, and calibration tables.
+- `outputs/metrics/`: model performance summaries, paired MAE comparisons, cross-validation summaries, smearing factor, host-type summaries, and run metadata.
+- `outputs/figures/`: model comparison, feature importance, segment deviation, host-type, and calibration figures.
+
+The generated files include CSV tables, JSON summaries, and PNG figures. Their filenames are defined directly in `reproduce.py`.
+
+The complete notebook may also contain intermediate analysis results that are not exported by the quick reproduction script.
+
+### 8.6. Inference on New Data
+
+The project focuses on experimental evaluation and model comparison rather than deployment as a prediction service. Neither the quick reproduction script nor the documented workflow provides a standalone command-line interface, REST API, or interactive web application for predicting prices of arbitrary new listings.
+
+Accordingly, no separate inference command or demo interface is provided.
+
+---
+## 9. Randomness and Determinism
+
+The experiments use fixed random seeds to improve reproducibility across repeated runs.
+
+- **Repeated train/test splits:** Five seeds are used: `42`, `1`, `7`, `123`, and `2024`.
+- **Cross-validation:** Stratified K-fold splitting uses a fixed random state of `42`.
+- **Hyperparameter sampling:** `ParameterSampler` uses `random_state=42` for the Random Forest, XGBoost, and Gradient Boosting searches.
+- **Model-level randomness:** Random Forest, XGBoost, Gradient Boosting, and Lasso use `random_state=42` where applicable.
+- **Target encoding:** The cross-fitted target encoder uses `random_state=42`.
+- **Bootstrap analysis:** The main RQ3 and supplementary sensitivity analyses use fixed random seeds to make the resampling procedures reproducible.
+
+The `reproduce.py` script uses the final, predefined hyperparameters and does not rerun hyperparameter optimization. It generates results for the five specified train/test seeds and saves the resulting evaluation outputs.
+
+Exact numerical results may still vary slightly across different software versions, hardware configurations, or computational environments. The project does not use PyTorch, GPU-based training, or DataLoader workers; therefore, PyTorch-specific deterministic settings are not applicable.
+
+No universal numerical tolerance is prescribed for cross-environment reproduction. Small differences may occur due to software and hardware variations; the reported metrics should be compared using the same dataset, preprocessing procedure, split seeds, and evaluation definitions.
+
+---
+## 10. Mapping Results to the Report
+
+The following table maps the reported results to their corresponding reproduction procedures, configurations, and generated files.
+
+| Report item | Reproduction command / procedure | Configuration | Output file(s) | Key result |
+|---|---|---|---|---|
+| RQ2 – Model performance comparison | `python reproduce.py` | Six models; five train/test seeds; fixed hyperparameters | `outputs/tables/rq2_model_results_by_seed.csv`; `outputs/metrics/rq2_model_performance_summary.csv`; `outputs/figures/model_comparison.png` | XGBoost achieved the best overall predictive performance. |
+| RQ2 – Paired MAE comparison | `python reproduce.py` | Paired comparison across the five test splits | `outputs/tables/rq2_paired_mae_by_seed.csv`; `outputs/metrics/rq2_paired_mae_summary.csv` | Compares model-level MAE differences across repeated splits. |
+| RQ1 – Lasso coefficients | `python reproduce.py` | Final Lasso configuration | `outputs/tables/rq1_lasso_coefficients.csv`; `outputs/figures/lasso_coefficients.png` | Reports the selected linear-model coefficients. |
+| RQ1 – Feature importance | `python reproduce.py` | Random Forest and XGBoost with final hyperparameters | `outputs/tables/rq1_feature_importance.csv`; `outputs/figures/RQ1_Feature_Importance2.png` | Entire-home room type was among the most important predictors. |
+| RQ3 – Segment-level pricing deviations | `python reproduce.py` | Five test splits; host-clustered bootstrap; Holm correction; practical threshold | `outputs/tables/rq3_segment_results_by_split.csv`; `outputs/tables/rq3_segment_summary_5_splits.csv`; `outputs/figures/rq3_dotplot_deviation_en.png` | No segment satisfied all four criteria for a systematic pricing deviation. |
+| Host-type comparison | `python reproduce.py` | Direct multi-host versus single-host comparison; host-clustered bootstrap | `outputs/tables/host_type_overall_by_seed.csv`; `outputs/metrics/host_type_overall_consistency.json`; `outputs/figures/host_type_forest_plot.png` | The direct host-type differences were not statistically supported. |
+| Host-type comparison by room type | `python reproduce.py` | Separate analysis by room type | `outputs/tables/host_type_by_room_type_by_split.csv`; `outputs/metrics/host_type_by_room_type_summary.csv`; `outputs/figures/host_type_by_room_type.png` | Exploratory host-type differences across room types. |
+| GroupKFold generalization analysis | `python reproduce.py` | GroupKFold and StratifiedKFold evaluation | `outputs/tables/groupkfold_vs_stratifiedkfold_fold_mae.csv`; `outputs/metrics/groupkfold_vs_stratifiedkfold_summary.csv` | Compares generalization performance under listing-level and host-grouped validation. |
+| Prediction calibration | `python reproduce.py` | Selected XGBoost model; decile-based calibration and smearing correction | `outputs/tables/calibration_by_decile.csv`; `outputs/metrics/smearing_factor.json`; `outputs/figures/calibration.png` | Examines calibration across predicted-price deciles and mean-price correction. |
+| Run metadata | `python reproduce.py` | Recorded execution environment and experiment metadata | `outputs/metrics/run_metadata.json` | Records metadata associated with the reproduction run. |
+| Supplementary injected-shift sensitivity analysis | Reproduce separately using `notebooks/Full_notebookk.ipynb` | Two selected segments; injected shifts of 5%, 10%, and 20%; paired host-cluster bootstrap; Holm correction | Supplementary analysis results in the research notebook | Both segments showed positive changes across all five splits. The practical threshold was reached in 5/5 splits for 10% and 20% shifts, but not for 5% shifts. |
+
+**Reproduction scope and limitations**
+
+- Running `python reproduce.py` regenerates the outputs listed for the main analyses above. It does not rerun hyperparameter optimization because the final hyperparameters are predefined in the script.
+- The supplementary injected-shift sensitivity analysis is reported in the manuscript but is intentionally excluded from `reproduce.py`. It requires a separate execution of the corresponding analysis in `notebooks/Full_notebookk.ipynb`.
+- Therefore, the quick reproduction script does not independently regenerate every supplementary result reported in the manuscript. This distinction is intentional and should be considered when reproducing the complete study.
+- Output filenames are listed as generated by the current version of `reproduce.py`.
+
+---
+## 11. Limitations and Troubleshooting
+
+### 11.1. Reproduction Limitations
+
+The main experimental workflow can be rerun using `reproduce.py` and the dataset included in the repository. However, exact numerical agreement with the manuscript is not guaranteed in every analysis.
+
+The following limitations should be considered:
+
+- **GroupKFold variability:** The GroupKFold evaluation may produce slightly different results across executions due to differences in the grouping and fold assignment process. In the reproduction run, the mean MAE was approximately **$55.09 ± $3.75**, compared with **$55.15 ± $3.70** reported in the manuscript. The difference in mean MAE is approximately $0.06.
+- **Computational cost:** A complete execution of `reproduce.py` took approximately **4,600 seconds (76 minutes and 40 seconds)** in a newly created Google Colab notebook. This measurement represents one recorded execution and should be treated as a reference rather than a guaranteed runtime. Actual execution time may vary depending on the CPU resources allocated by Google Colab and the computational environment.
+- **Supplementary sensitivity analysis:** The injected-shift sensitivity analysis is not executed by `reproduce.py` and must be reproduced separately using the research notebook, as described in Section 10.
+- **Environment-dependent variation:** Small numerical differences may occur due to differences in software versions, hardware, and computational execution.
+
+The reproduced outputs were observed to be broadly consistent with the reported findings. However, exact agreement across every numerical result has not been independently verified.
+
+### 11.2. Troubleshooting
+
+No specific installation or execution errors have been documented during the preparation of this reproduction guide. The following table lists potential issues and suggested solutions.
+
+| Issue | Possible cause | Suggested solution |
+|---|---|---|
+| `ModuleNotFoundError` | Required package is not installed or the wrong Python environment is active. | Activate the project environment and run `pip install -r requirements.txt`. |
+| `FileNotFoundError` for the dataset | The script is executed without the expected dataset file or repository structure. | Verify that `data/raw/AB_NYC_2019.csv` exists in the repository. |
+| `PermissionError` when saving outputs | The output directory is not writable. | Check directory permissions and ensure the project is stored in a writable location. |
+| Execution takes substantially longer than expected | Limited CPU resources or competing processes. | Close unnecessary processes and allow sufficient execution time. |
+| Different GroupKFold metrics | Differences in grouping, fold assignment, or execution environment. | Check the recorded metadata and compare the evaluation procedure and grouping configuration. |
+
+### 11.3. Known Numerical Differences
+
+The GroupKFold results may differ slightly from those reported in the manuscript. The reproduced mean MAE was approximately $55.09, compared with $55.15 in the reported results. The corresponding standard deviations were $3.75 and $3.70, respectively.
+
+These differences are small in magnitude and do not materially change the interpretation of the generalization analysis. Nevertheless, the reproduced values should be distinguished from the originally reported values rather than treated as exact matches.
+
+---
+### 12. Third-Party Libraries and References
+
+The project uses the following Python libraries and tools:
+
+| Library / Tool | Main purpose | Official reference |
+|---|---|---|
+| NumPy | Numerical computing and array operations | https://numpy.org/ |
+| pandas | Data manipulation and preprocessing | https://pandas.pydata.org/ |
+| DuckDB | Data querying and analytical operations | https://duckdb.org/ |
+| Matplotlib | Plotting and visualization | https://matplotlib.org/ |
+| Seaborn | Statistical data visualization | https://seaborn.pydata.org/ |
+| scikit-learn | Preprocessing, cross-validation, regression models, and evaluation | https://scikit-learn.org/ |
+| statsmodels | Statistical procedures and multiple-testing correction | https://www.statsmodels.org/ |
+| XGBoost | Gradient-boosted tree modeling | https://xgboost.readthedocs.io/ |
+
+The exact package versions used in the project are specified in `requirements.txt`.
+
+The project uses these libraries through their documented APIs. No third-party source code is intentionally presented as original work by the authors. Any externally sourced or adapted code should be identified and attributed in the relevant source file.
+
+**Dataset source:**
+
+- Gomonov, A. (2019). *New York City Airbnb Open Data*. Kaggle. https://www.kaggle.com/datasets/dgomonov/new-york-city-airbnb-open-data
+- Original data source: Inside Airbnb. https://insideairbnb.com/get-the-data/
+
+The dataset is distributed under the CC0 1.0 Universal license as indicated by its Kaggle dataset metadata. Users should also consult the original data source and its applicable terms.
+
+---
+### Generative AI Declaration
+
+Generative AI tools were used as supporting tools during the development of the project, including programming, literature exploration, manuscript preparation, visualization, and notebook review.
+
+The tools and their respective roles are summarized below:
+
+| AI tool | Usage in the project |
+|---|---|
+| ChatGPT | Assisted with code development and debugging, manuscript drafting and revision, methodological discussions, brainstorming, and explanations of statistical and machine-learning concepts. |
+| Claude | Assisted with code development, manuscript revision, literature exploration and reference checking, and critical review of the manuscript. |
+| Dola | Assisted with writing code for simple figures and visualizations. |
+| DeepSeek | Assisted with code development, debugging, and brainstorming. |
+| NotebookLM | Assisted with summarizing and organizing information from research papers and reference materials. |
+| Gemini | Assisted with manuscript drafting and writing-related tasks. |
+| Grok | Assisted with reviewing and inspecting notebook files. |
+| GitHub Copilot | Assisted with reviewing and evaluating figures and visualizations. |
+
+AI-generated suggestions, code, explanations, and manuscript content were reviewed by the project authors before being incorporated into the final work.
+
+Code was checked through execution and comparison with the intended analytical procedures. Statistical methods, numerical results, and interpretations were reviewed against the implemented workflow and experimental outputs. Literature references were checked against their original publications or authoritative bibliographic records whenever applicable.
+
+The authors retain responsibility for the accuracy, originality, reproducibility, and integrity of the submitted work. AI tools are acknowledged as supporting tools and are not considered authors of the research.
+
+---
+### Citing This Project
+
+If this work is formally published, cite the corresponding publication using its official bibliographic information.
+
+A BibTeX entry can be added after publication:
+
+    @inproceedings{airbnb_price_prediction,
+      author    = {Author One and Author Two and Author Three},
+      title     = {Airbnb Price Prediction in New York City Using Tree Ensembles and Segment-Level Price Deviation Analysis},
+      booktitle = {Conference Proceedings},
+      year      = {YEAR},
+      pages     = {XX--XX},
+      doi       = {DOI}
+    }
+
+The placeholders should be replaced with the actual publication metadata. Do not use this template as a finalized citation before publication.
+
+---
+### License
+
+**Source code:** The repository does not currently include a `LICENSE` file. Therefore, no specific open-source license has been declared for the project's original source code.
+
+**Dataset:** The Airbnb dataset is distributed under the CC0 1.0 Universal license according to the Kaggle dataset metadata. The original data source is Inside Airbnb.
+
+**Third-party libraries:** All third-party libraries remain subject to their respective licenses and terms of use. Their licenses are not replaced or modified by this project.
