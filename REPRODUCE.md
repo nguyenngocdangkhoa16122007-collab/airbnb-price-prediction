@@ -344,3 +344,97 @@ On macOS or Linux, run:
     sha256sum data/raw/AB_NYC_2019.csv
 
 The calculated checksum should match the value reported in this section.
+---
+# 6. Config & Hyperparameters
+
+## 6.1 Configuration Management
+
+The final hyperparameters used for reproduction are explicitly defined in `reproduce.py`. The current repository does not use separate YAML configuration files.
+
+The original hyperparameter optimization was performed during the research phase. The selected configurations were subsequently fixed in the reproduction script to avoid repeating the computationally expensive search process.
+
+## 6.2 Hyperparameter Optimization
+
+Hyperparameter optimization was conducted using two approaches:
+
+**Linear models**
+
+- Ridge Regression: Grid Search over 25 logarithmically spaced alpha values from 0.0001 to 100.
+- Lasso Regression: Grid Search over 30 logarithmically spaced alpha values from 0.000001 to 10.
+- Linear Regression: No hyperparameter search was performed.
+
+**Tree-based models**
+
+Randomized Search was implemented using scikit-learn's `ParameterSampler`, with 25 sampled configurations for each model:
+
+- Random Forest
+- XGBoost
+- Gradient Boosting
+
+The sampling process used `random_state=42`.
+
+All candidate configurations were evaluated using five-fold stratified cross-validation on the training data. The mean MAE in the original USD price scale was used as the primary selection metric. The final configuration for each tuned model was selected based on the lowest mean cross-validation MAE.
+
+The held-out test set was not used for hyperparameter selection.
+
+## 6.3 Search Spaces
+
+The search spaces for the tree-based models were:
+
+**Random Forest**
+
+| Hyperparameter | Candidate values |
+|---|---|
+| `n_estimators` | {300, 500} |
+| `max_depth` | {8, 10, 12, 15, 18} |
+| `min_samples_leaf` | {1, 3, 5, 10, 20} |
+| `max_features` | {sqrt, 0.5, 0.7} |
+
+**XGBoost**
+
+| Hyperparameter | Candidate values |
+|---|---|
+| `n_estimators` | {300, 500, 700, 1000} |
+| `max_depth` | {6, 8, 10, 12} |
+| `learning_rate` | {0.01, 0.03, 0.05} |
+| `subsample` | {0.6, 0.8, 1.0} |
+| `colsample_bytree` | {0.6, 0.8, 1.0} |
+| `min_child_weight` | {1, 3, 5} |
+| `reg_lambda` | {1, 2, 5} |
+
+**Gradient Boosting**
+
+| Hyperparameter | Candidate values |
+|---|---|
+| `n_estimators` | {100, 150, 200, 300} |
+| `max_depth` | {3, 4, 5, 6, 8} |
+| `learning_rate` | {0.01, 0.03, 0.05, 0.1} |
+| `subsample` | {0.6, 0.8, 1.0} |
+| `min_samples_leaf` | {5, 10, 20, 50} |
+
+## 6.4 Final Model Hyperparameters
+
+The following configurations are fixed in `reproduce.py`:
+
+| Model | Final hyperparameters |
+|---|---|
+| Linear Regression | Default scikit-learn configuration |
+| Ridge | `alpha=1.0` |
+| Lasso | `alpha=0.0001` |
+| Random Forest | `n_estimators=500`, `max_depth=18`, `min_samples_leaf=1`, `max_features=0.5` |
+| XGBoost | `n_estimators=1000`, `max_depth=6`, `learning_rate=0.03`, `subsample=0.8`, `colsample_bytree=0.6`, `min_child_weight=1`, `reg_lambda=5` |
+| Gradient Boosting | `n_estimators=300`, `max_depth=8`, `learning_rate=0.1`, `subsample=1.0`, `min_samples_leaf=5` |
+
+XGBoost was selected as the best-performing model based on mean cross-validation MAE.
+
+## 6.5 Reproduction Notes
+
+The reproduction script does not repeat the original hyperparameter search. Instead, it uses the fixed hyperparameters listed in Section 6.4.
+
+The original search-result DataFrames were not exported as `outputs/hpo_results.csv`. Therefore, this file is not included in the current reproduction package.
+
+The preprocessing pipeline is implemented directly in `reproduce.py`. Its data-dependent transformations are fitted using the relevant training partition, as described in Section 5.
+
+One-hot encoding was configured differently for linear and tree-based models. Linear models used reference-category encoding (drop_first=True) to avoid perfect multicollinearity, whereas tree-based models retained all dummy variables (drop_first=False). Latitude and longitude were standardized during preprocessing for all models. Additionally, linear models used a StandardScaler within the modeling pipeline to standardize the complete feature matrix.
+
+All candidate configurations were evaluated using five-fold stratified cross-validation, with mean MAE on the original USD price scale as the primary selection metric. Although the target variable was log-transformed during model training, predictions were transformed back to the original price scale before MAE calculation.
