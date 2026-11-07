@@ -4,7 +4,6 @@
 # ============================================================
 
 import os
-import gc
 import re
 import time
 
