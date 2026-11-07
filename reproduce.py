@@ -4,7 +4,7 @@
 reproduce.py - Quick Reproduction of the NYC Airbnb price-prediction study
 ==========================================================================
 
-Source of truth: the research notebook (ADYm_analysis.ipynb / Full_notebook.ipynb).
+Source of truth: the research notebook (Full_notebookk.ipynb).
 
 What this script reproduces (no hyper-parameter tuning is run):
     RQ2   6 models x 5 train/test splits, MAE/RMSE/R2 (log, capped, raw),
