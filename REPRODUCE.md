@@ -261,61 +261,86 @@ Note: The supplementary injected-shift sensitivity analysis is not included in `
 ---
 # 5. Data
 
-## 5.1 Dataset Information
+## 5.1 Dataset Source
 
-This study uses the **New York City Airbnb Open Data (2019)** dataset originally published by Gomonov (2019) on Kaggle.
+This project uses the New York City Airbnb Open Data dataset by Gomonov (2019), redistributed through Kaggle from publicly available listings collected by the Inside Airbnb project.
 
-- **Dataset name:** New York City Airbnb Open Data
-- **Original source:** Kaggle
-- **Dataset author:** Gomonov
-- **Dataset URL:** https://www.kaggle.com/datasets/dgomonov/new-york-city-airbnb-open-data
-- **File used:** `AB_NYC_2019.csv`
-- **Original size:** 48,895 rows × 16 columns
-- **File location in this repository:** `data/raw/AB_NYC_2019.csv`
-- **Dataset license:** [TODO: Verify and specify the original dataset license]
-- **File checksum (SHA-256):** [TODO: Add checksum]
+- Dataset: New York City Airbnb Open Data
+- Original source: https://www.kaggle.com/datasets/dgomonov/new-york-city-airbnb-open-data
+- License: CC0 1.0 (Public Domain)
+- File name: `AB_NYC_2019.csv`
+- Original size: 48,895 rows × 16 columns
+- Repository path: `data/raw/AB_NYC_2019.csv`
 
-## 5.2 Dataset Description
+The raw CSV file is included in the GitHub repository. No separate download is required when cloning the repository.
 
-The dataset contains Airbnb listing information for New York City in 2019. It includes listing characteristics, host-related information, geographical attributes, room types, review information, availability, and listing prices.
+## 5.2 Data Cleaning
 
-The original dataset contains 48,895 observations and 16 columns.
+The reproduction script loads the original CSV file and performs the following cleaning operations:
 
-The target variable in this study is the listing price (`price`).
+1. Removes listings with a price of zero or less (11 rows in the original dataset).
+2. Fills missing values in `reviews_per_month` with zero. These missing values correspond to listings with no reviews.
+3. Derives a binary `has_review` feature to indicate whether a listing has received reviews.
 
-## 5.3 Data Preprocessing
+The variables `last_review` and `reviews_per_month` contain missing values for 10,052 listings (approximately 20.6% of the original dataset). These missing values are treated as structural rather than arbitrary missing observations because the corresponding listings have `number_of_reviews = 0`.
 
-The following preprocessing operations are applied during the analysis:
+## 5.3 Feature Engineering and Preprocessing
 
-1. **Invalid price removal:** 11 observations with a price of zero are removed.
-2. **Price capping:** The price variable is capped at its 99th percentile to reduce the influence of extreme high-price observations.
-3. **Target transformation:** The target variable is transformed using `log1p(price)` for model training.
-4. **Feature preparation:** Categorical variables and numerical variables are processed according to the requirements of each model.
-5. **Target encoding:** Neighbourhood-related target encoding is performed using training data only, with cross-fitting to reduce target leakage.
-6. **Text-derived features:** Additional listing features are extracted from the listing title (`name`) using regular expressions.
+The following transformations are applied during preprocessing:
 
-Preprocessing operations that learn parameters from data are fitted using training data only to prevent information leakage from the test set.
+**Numerical features**
+- Applies `log1p(x)` transformations to `minimum_nights`, `number_of_reviews`, `reviews_per_month`, and `calculated_host_listings_count`.
+- Caps the target price and `minimum_nights` at their respective 99th percentiles before applying the target log transformation. The percentile thresholds are estimated from the training data only.
+- Transforms the target variable using `log1p(price)`.
+- Converts `last_review` into `days_since_last_review`, measured relative to 31 December 2019. Listings without reviews receive a sentinel value estimated from the training data.
+- Creates `is_unavailable`, indicating whether `availability_365` equals zero.
 
-## 5.4 Data Access and Usage
+**Categorical encoding and scaling**
+- One-hot encodes `neighbourhood_group` and `room_type`.
+- Drops one reference category for Linear Regression, Ridge, and Lasso; retains all indicators for tree-based models.
+- Standardizes numerical features using training-partition statistics for the linear models. Latitude and longitude are standardized for all six models.
+- Encodes `neighbourhood` using a five-fold cross-fitted target encoder. The encoder is fitted using training data only, with unseen neighbourhoods mapped to the training-target mean.
 
-The original dataset is included in the repository at:
+**Geographic features**
+- Calculates Haversine distances in kilometres to:
+  - Times Square (40.75636, -73.98644)
+  - Wall Street financial district (40.7074, -74.0113)
 
-```text
-data/raw/AB_NYC_2019.csv
-```
+**Title-derived features**
+Ten features are extracted from the listing title (`name`):
+- `n_bed_name`: stated bedroom count; "studio" is encoded as zero, while -1 indicates that the count cannot be extracted.
+- `n_bed_name_missing`: indicates whether the bedroom count could not be extracted.
+- Eight binary keyword indicators: `luxury`, `penthouse`, `loft`, `townhouse`, `duplex`, `cozy`, `bunk`, and `hostel`.
 
-Users can obtain the dataset by cloning the repository. No separate manual download is required if the dataset file remains available in the repository.
+Raw host names and listing titles are not directly used as predictors. Only the title-derived features are retained. The raw target and price-derived quantities are excluded from the predictor variables.
 
-**Dataset modification before repository upload:** [TODO: Confirm whether the uploaded CSV is identical to the original Kaggle file.]
+## 5.4 Data Leakage Prevention
 
-**Processed dataset storage:** [TODO: Specify whether processed data are saved to `data/processed/` or generated dynamically during notebook execution.]
+All data-dependent preprocessing steps are fitted using the relevant training partition only. This includes:
+
+- 99th-percentile capping thresholds;
+- numerical scaling statistics;
+- neighbourhood target encoding;
+- the sentinel value for listings without a recorded review date.
+
+The fitted transformations are then applied unchanged to the corresponding validation or test partition.
+
+This procedure prevents information from validation and test observations from influencing preprocessing.
 
 ## 5.5 Data Integrity
 
-To help verify that users are working with the same dataset version, the SHA-256 checksum of the original CSV file can be provided below.
+The SHA256 checksum of the raw dataset is provided below to help verify file integrity.
 
-```text
-SHA-256: [TODO: Insert checksum]
-```
+- File: `data/raw/AB_NYC_2019.csv`
+- Algorithm: SHA256
+- Checksum: `e420db40ff10fcb40efc1b5b1648ee0b18a48f4e4537155cecc59fe95d18783a`
 
-The dataset should be treated as the original input to the analysis. Preprocessing and feature engineering are performed by the project workflow rather than by manually modifying the raw CSV file.
+To calculate the checksum on Windows PowerShell, run:
+
+    Get-FileHash .\data\raw\AB_NYC_2019.csv -Algorithm SHA256
+
+On macOS or Linux, run:
+
+    sha256sum data/raw/AB_NYC_2019.csv
+
+The calculated checksum should match the value reported in this section.
