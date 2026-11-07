@@ -34,6 +34,77 @@ The study evaluates predictive performance and examines model-relative price dev
 - **Last Updated:** [TODO: Date]
 
 ---
+# 1. Quick Start
+
+This section provides the fastest way to reproduce the main results
+without manually running the research notebook.
+
+## 1.1 Clone the repository
+
+Open a terminal and run:
+
+    git clone https://github.com/nguyenngocdangkhoa16122007-collab/airbnb-price-prediction.git
+    cd airbnb-price-prediction
+
+## 1.2 Set up the Python environment
+
+Create and activate a virtual environment.
+
+**Windows:**
+
+    python -m venv .venv
+    .venv\Scripts\activate
+
+**macOS / Linux:**
+
+    python3 -m venv .venv
+    source .venv/bin/activate
+
+Install the required packages:
+
+    python -m pip install --upgrade pip
+    pip install -r requirements.txt
+
+## 1.3 Check the dataset
+
+Ensure that the dataset is available at:
+
+    data/raw/AB_NYC_2019.csv
+
+The script expects the original NYC Airbnb Open Data file
+containing 48,895 rows and 16 columns.
+
+## 1.4 Run the reproduction script
+
+From the repository root, execute:
+
+    python reproduce.py
+
+The script automatically loads and validates the dataset, performs
+preprocessing, trains the six configured models across five
+train/test splits, and generates the evaluation and analysis outputs.
+
+No hyperparameter tuning is performed during this run. The script
+uses the final hyperparameters specified in the source code.
+
+## 1.5 Locate the generated results
+
+After successful execution, the results are saved in:
+
+- `outputs/tables/`: per-split results, feature importance,
+  pricing-deviation results, and other detailed tables.
+- `outputs/metrics/`: aggregated model metrics, cross-validation
+  summaries, smearing factor, and run metadata.
+- `outputs/figures/`: model comparison, calibration,
+  feature-importance, and pricing-deviation figures.
+
+The script prints progress messages and elapsed time in the terminal.
+A successful run ends with:
+
+    Quick Reproduction finished. Outputs are in outputs/tables,
+    outputs/metrics, outputs/figures.
+
+---
 
 # 2. Folder Structure
 
