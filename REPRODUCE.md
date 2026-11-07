@@ -38,6 +38,7 @@ The study evaluates predictive performance and examines model-relative price dev
 
 This section provides the fastest way to reproduce the main results
 without manually running the research notebook.
+The script reproduces the main model evaluation and analytical results. The supplementary injected-shift sensitivity analysis is not included in this quick reproduction script and must be reproduced separately using the research notebook.
 
 ## 1.1 Clone the repository
 
@@ -155,7 +156,109 @@ airbnb-price-prediction/
 The main analysis notebook is `notebooks/Full_notebookk.ipynb`. It contains the workflow used in the research, while the reproduction script is maintained separately.
 
 ---
+# 3. Hardware & Software Requirements
 
+## 3.1 Hardware Requirements
+
+The project was developed and executed using Google Colab. 
+The following hardware is recommended:
+
+- CPU: Multi-core processor
+- RAM: At least 8 GB (16 GB recommended)
+- Storage: At least 2 GB of available space
+- GPU: Not required; the experiments can run on CPU.
+
+Actual execution time may vary depending on hardware and system load.
+
+## 3.2 Software Requirements
+
+- Python: A compatible Python 3 environment
+- pip: Python package installer
+- Git: Required to clone the repository
+
+## 3.3 Python Dependencies
+
+The project uses the following package versions:
+
+| Package | Version |
+|---|---:|
+| numpy | 2.4.6 |
+| pandas | 2.2.3 |
+| duckdb | 1.3.2 |
+| matplotlib | 3.10.0 |
+| seaborn | 0.13.2 |
+| scikit-learn | 1.6.1 |
+| statsmodels | 0.15.0 |
+| xgboost | 3.4.1 |
+
+All dependencies are listed in `requirements.txt`.
+
+---
+# 4. Environment Setup
+
+## 4.1 Clone the Repository
+
+Open a terminal and run the following commands:
+
+    git clone https://github.com/nguyenngocdangkhoa16122007-collab/airbnb-price-prediction.git
+    cd airbnb-price-prediction
+
+## 4.2 Create a Virtual Environment
+
+A virtual environment is recommended to avoid conflicts with packages installed in other Python projects.
+
+**Windows:**
+
+    python -m venv .venv
+    .venv\Scripts\activate
+
+**macOS / Linux:**
+
+    python3 -m venv .venv
+    source .venv/bin/activate
+
+## 4.3 Install Dependencies
+
+After activating the virtual environment, install the required packages:
+
+    python -m pip install --upgrade pip
+    pip install -r requirements.txt
+
+The `requirements.txt` file specifies the package versions used in this project.
+
+## 4.4 Verify the Installation
+
+Run the following command to check whether all required packages can be imported:
+
+    python -c "import numpy, pandas, duckdb, matplotlib, seaborn, sklearn, statsmodels, xgboost; print('All packages imported successfully.')"
+
+If the command finishes without an import error, the package installation is successful.
+
+## 4.5 Verify the Dataset
+
+Before running the reproduction script, ensure that the dataset is available at:
+
+    data/raw/AB_NYC_2019.csv
+
+The expected original dataset contains 48,895 rows and 16 columns.
+
+If the file is missing, place the original `AB_NYC_2019.csv` dataset in the `data/raw/` directory.
+
+## 4.6 Run the Reproduction Script
+
+From the repository root directory, execute:
+
+    python reproduce.py
+
+The script will perform the main model evaluation and analyses, then save generated outputs in the following directories:
+
+- `outputs/tables/`
+- `outputs/metrics/`
+- `outputs/figures/`
+
+Note: The supplementary injected-shift sensitivity analysis is not included in `reproduce.py`. It must be reproduced separately using the research notebook.
+
+---
 # 5. Data
 
 ## 5.1 Dataset Information
