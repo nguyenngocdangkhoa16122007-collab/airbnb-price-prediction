@@ -438,3 +438,41 @@ The preprocessing pipeline is implemented directly in `reproduce.py`. Its data-d
 One-hot encoding was configured differently for linear and tree-based models. Linear models used reference-category encoding (drop_first=True) to avoid perfect multicollinearity, whereas tree-based models retained all dummy variables (drop_first=False). Latitude and longitude were standardized during preprocessing for all models. Additionally, linear models used a StandardScaler within the modeling pipeline to standardize the complete feature matrix.
 
 All candidate configurations were evaluated using five-fold stratified cross-validation, with mean MAE on the original USD price scale as the primary selection metric. Although the target variable was log-transformed during model training, predictions were transformed back to the original price scale before MAE calculation.
+---
+## 7. Training
+
+### 7.1. Training Procedure
+
+All six regression models reported in the study were trained using the `reproduce.py` script. The script uses the final hyperparameter configurations specified directly in the source code; therefore, hyperparameter tuning is not repeated during reproduction.
+
+To execute the training and reproduction pipeline, run the following command from the repository root:
+
+    python reproduce.py
+
+The pipeline evaluates the six models: Linear Regression, Ridge Regression, Lasso Regression, Random Forest, XGBoost, and Gradient Boosting. Training and evaluation are repeated using five random seeds: 42, 1, 7, 123, and 2024. Each model is trained using the corresponding training partition, with preprocessing fitted only on the relevant training data to prevent information leakage.
+
+### 7.2. Model Configuration
+
+All models use the final hyperparameters documented in Section 6. The reproduction script loads these configurations directly and does not perform additional hyperparameter searches.
+
+### 7.3. Output Artifacts
+
+Generated results are saved in the following directories:
+
+- `outputs/tables/`: generated result tables.
+- `outputs/metrics/`: evaluation metrics and related numerical outputs.
+- `outputs/figures/`: generated visualizations.
+
+The script does not rely on separately saved deep-learning checkpoints, epoch-based training logs, or TensorBoard/W&B tracking.
+
+### 7.4. Computational Resources
+
+The experiments were conducted using Google Colab. The actual execution environment and runtime depend on the allocated Colab resources.
+
+- Environment: Google Colab.
+- CPU: x86_64.
+- RAM: 12.67.
+- GPU: Not used / unavailable.
+- Total execution time: [record actual runtime].
+
+---
