@@ -118,7 +118,7 @@ airbnb-price-prediction/
 ├── reproduce.py
 ├── notebooks/
 │   ├── .gitkeep
-│   └── ADYm_analysis.ipynb
+│   └── Full_notebookk.ipynb
 ├── data/
 │   ├── raw/
 │   │   └── AB_NYC_2019.csv
