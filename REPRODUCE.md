@@ -597,7 +597,7 @@ The main experimental workflow can be rerun using `reproduce.py` and the dataset
 
 The following limitations should be considered:
 
-- **GroupKFold variability:** The GroupKFold evaluation may produce slightly different results across executions due to differences in the grouping and fold assignment process. In the reproduction run, the mean MAE was approximately **$55.09 ± $3.75**, compared with **$55.15 ± $3.70** reported in the manuscript. The difference in mean MAE is approximately $0.06.
+- **GroupKFold variability:** The GroupKFold evaluation may produce slightly different results across executions due to differences in the grouping and fold assignment process. In the reproduction run, the mean MAE was approximately **$55.15 ± $3.70**, compared with **$55.09 ± $3.75** reported in the manuscript. The difference in mean MAE is approximately $0.06.
 - **Computational cost:** A complete execution of `reproduce.py` took approximately **4,600 seconds (76 minutes and 40 seconds)** in a newly created Google Colab notebook. This measurement represents one recorded execution and should be treated as a reference rather than a guaranteed runtime. Actual execution time may vary depending on the CPU resources allocated by Google Colab and the computational environment.
 - **Supplementary sensitivity analysis:** The injected-shift sensitivity analysis is not executed by `reproduce.py` and must be reproduced separately using the research notebook, as described in Section 10.
 - **Environment-dependent variation:** Small numerical differences may occur due to differences in software versions, hardware, and computational execution.
