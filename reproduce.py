@@ -13,8 +13,10 @@ What this script reproduces (no hyper-parameter tuning is run):
           (neighbourhood_group x room_type) segment: host-clustered bootstrap
           (B = 4000), Holm correction, +-5 % practical threshold,
           direction consistency in >= 3 of 5 splits.
+    Sens  Injected-shift sensitivity analysis (paired host-cluster bootstrap,
+          B = 4000) on selected segments x shift magnitudes across 5 splits.
     Host  Multi-host vs single-host comparison (overall and within each room
-          type) with host-clustered bootstrap.
+          type) with host-clustered bootstrap (B = 4000).
     RQ1   Lasso coefficients, Random Forest impurity importance and XGBoost
           gain importance (split seed 42).
     CV    StratifiedKFold vs GroupKFold(host_id) MAE for XGBoost, Random
@@ -105,13 +107,13 @@ FIGURE_PATH = os.path.join(OUTPUT_PATH, "figures")
 for _path in (TABLE_PATH, METRIC_PATH, FIGURE_PATH):
     os.makedirs(_path, exist_ok=True)
 
-# Global seed (notebook cell 3). Every estimator/split below also receives an
+# Global seed. Every estimator/split below also receives an
 # explicit random_state, exactly as in the notebook.
 SEED = 42
 np.random.seed(SEED)
 
 # Figure style that was active in the notebook when the paper figures were made
-# (notebook cells 8 and 15: seaborn whitegrid theme, figure.dpi = 110).
+#.
 sns.set_theme(style="whitegrid", context="notebook")
 plt.rcParams.update({"figure.dpi": 110, "figure.figsize": (16, 6)})
 
@@ -131,7 +133,7 @@ def save_table(df_, name, folder):
 
 # ============================================================
 # 3. DATASET LOADING AND VALIDATION
-#    (notebook cells 3, 49, 65, 66)
+#   
 # ============================================================
 
 REQUIRED_COLUMNS = [
@@ -159,9 +161,9 @@ def load_and_clean_dataset(path):
     if raw.shape != (48895, 16):
         print(f"WARNING: expected shape (48895, 16) as in the notebook, got {raw.shape}.")
 
-    # Cell 49 / 65: drop price == 0, reviews_per_month NaN -> 0, reset the index.
-    # (The notebook also adds price_capped / is_unavailable / has_review here;
-    #  all three are re-created inside preprocess_base(), so they are not needed.)
+    # Drop price == 0, reviews_per_month NaN -> 0, reset the index.
+    # (price_capped / is_unavailable / has_review are re-created inside
+    #  preprocess_base(), so they are not needed here.)
     cleaned = raw[raw["price"] > 0].copy()
     cleaned["reviews_per_month"] = cleaned["reviews_per_month"].fillna(0)
     cleaned = cleaned.reset_index(drop=True)
@@ -175,7 +177,7 @@ df_clean = load_and_clean_dataset(DATA_PATH)
 
 # ============================================================
 # 4. DATA PREPROCESSING AND FEATURE ENGINEERING
-#    (notebook cells 69, 70, 71 - unchanged)
+#   
 # ============================================================
 
 SEEDS = [42, 1, 7, 123, 2024]
@@ -285,7 +287,7 @@ def prepare_fold_fixed(tr_raw, va_raw, drop_first=False, use_name_features=True)
 
 # ============================================================
 # 5. MODEL INITIALISATION - FINAL SELECTED HYPER-PARAMETERS
-#    (notebook cells 90 and 91; NO tuning is performed here)
+#   
 # ============================================================
 
 best_params_rf = {'n_estimators': 500, 'max_depth': 18, 'min_samples_leaf': 1, 'max_features': 0.5}
@@ -319,8 +321,8 @@ def build_model_fn(name):
 
 # ============================================================
 # 6. TRAINING AND EVALUATION ON THE 5 FIXED SPLITS
-#    RQ2 table (notebook cell 92) + per-split XGBoost predictions for
-#    RQ3 / host-type analyses (notebook cell 97)
+#    RQ2 table + per-split XGBoost predictions for
+#    RQ3 / host-type analyses
 # ============================================================
 
 def evaluate_once(model, X_tr, y_tr, X_te, price_te_raw, p99_price_train):
@@ -344,7 +346,7 @@ all_results = []     # RQ2: one row per (model, seed)
 split_models = {}    # RQ3 / host type: seed -> {'test', 'pred_log', 'price_te_raw'}
 
 # Kept from the seed-42 split only (SEEDS[0]): RQ1 importances/coefficients are
-# read from the RQ2 fits (identical configuration to notebook cell 123), and the
+# read from the RQ2 fits, and the
 # train part is reused by the GroupKFold / smearing section.
 rq1_store = {}
 train_full0 = None
@@ -372,7 +374,7 @@ for seed in SEEDS:
                             'r2_log': r2_log, 'r2_capped': r2_capped, 'r2_raw': r2_raw})
         if model_name == 'XGBoost':
             xgb_pred_log_rs42 = model.predict(X_te)
-        if seed == 42:   # RQ1 (notebook cells 121 / 123 use the seed-42 split)
+        if seed == 42:   # RQ1
             if model_name == 'Random Forest':
                 rq1_store['RF'] = pd.Series(model.feature_importances_, index=X_tr.columns)
             elif model_name == 'XGBoost':
@@ -382,7 +384,7 @@ for seed in SEEDS:
         del model
 
     # RQ3 / host-type predictions: XGBoost fitted with random_state = split seed
-    # (notebook cell 97). For seed 42 this is the identical configuration to the
+    #. For seed 42 this is the identical configuration to the
     # RQ2 XGBoost fit above, so its predictions are reused instead of re-fitting.
     X_tr, y_tr, X_te, y_te, price_te_raw = prepared[False]
     if seed == 42:
@@ -412,12 +414,12 @@ all_results_df = pd.DataFrame(all_results)
 
 # ============================================================
 # 7. RQ2 - MODEL EVALUATION AND COMPARISON
-#    (notebook cells 92-95)
+#   
 # ============================================================
 
 log("RQ2: aggregating results")
 
-# ---- 7.1 Six-model table across the five splits (cell 92 / 93) ----
+# ---- 7.1 Six-model table across the five splits ----
 summary = all_results_df.groupby('model')[['mae', 'rmse', 'r2_log', 'r2_capped', 'r2_raw']].agg(['mean', 'std'])
 summary = summary.sort_values(('mae', 'mean'))
 summary.columns = ['_'.join(col).strip() for col in summary.columns.values]
@@ -500,7 +502,7 @@ print(pair_summary_df.round(4).to_string(index=False))
 save_table(pair_results_df, "rq2_paired_mae_by_seed.csv", TABLE_PATH)
 save_table(pair_summary_df, "rq2_paired_mae_summary.csv", METRIC_PATH)
 
-# ---- 7.3 Figure: model comparison (cell 93) ----
+# ---- 7.3 Figure: model comparison ----
 plot_summary = summary.copy()
 model_order = ['XGBoost', 'Gradient Boosting', 'Random Forest',
                'Linear Regression', 'Ridge', 'Lasso']
@@ -567,7 +569,7 @@ log("saved outputs/figures/model_comparison.png")
 
 # ============================================================
 # 8. RQ3 - PRICING DEVIATION ANALYSIS (HOST-CLUSTER BOOTSTRAP)
-#    (notebook cells 106-110)
+#   
 # ============================================================
 # D = log(actual / predicted); estimand = median(D_segment) - median(D_overall);
 # the bootstrap resamples hosts over the WHOLE test set and recomputes both medians.
@@ -706,7 +708,7 @@ def basic_bootstrap_ci_and_pvalue(
     return float(ci_low), float(ci_high), float(p_value)
 
 
-# ---- 8.1 Segment-level analysis in each of the five splits (cell 107) ----
+# ---- 8.1 Segment-level analysis in each of the five splits ----
 log("RQ3: host-clustered bootstrap per segment (B = 4000)")
 
 all_split_segment_results = []
@@ -854,7 +856,7 @@ full_segment_df = full_segment_df.sort_values(
     ["seed", "neighbourhood_group", "room_type"]
 ).reset_index(drop=True)
 
-# ---- 8.2 Aggregation over the five splits (cell 109) ----
+# ---- 8.2 Aggregation over the five splits ----
 # A split without a valid result for a segment counts as NOT passing.
 segments = full_segment_df[
     ["neighbourhood_group", "room_type"]
@@ -923,7 +925,7 @@ print(f"\nSegments meeting all criteria: {int(rq3_summary['meets_all_criteria'].
 save_table(full_segment_df, "rq3_segment_results_by_split.csv", TABLE_PATH)
 save_table(rq3_summary, "rq3_segment_summary_5_splits.csv", TABLE_PATH)
 
-# ---- 8.3 Figure: observed deviation by segment (cell 110) ----
+# ---- 8.3 Figure: observed deviation by segment ----
 plot_df = rq3_summary.copy()
 
 # Mean log-ratio -> exact percentage: 100 * (exp(D) - 1)
@@ -996,17 +998,525 @@ log("saved outputs/figures/rq3_dotplot_deviation_en.png")
 
 
 # ============================================================
+# 8b. PAIRED HOST-CLUSTER BOOTSTRAP FOR SENSITIVITY ANALYSIS
+# ============================================================
+
+def paired_host_cluster_sensitivity(
+    df,
+    target_mask,
+    shift_pct,
+    value_col="D",
+    group_col="host_id",
+    B=4000,
+    seed=42,
+):
+    """
+    Paired host-cluster bootstrap:
+    - Baseline: original D
+    - Simulated: D + log(1 + shift) for target segment
+    - Same sampled hosts are used for baseline and simulated data.
+    - Computes paired delta-theta for every eligible segment.
+    """
+
+    required = [
+        value_col,
+        group_col,
+        "neighbourhood_group",
+        "room_type",
+    ]
+
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        raise ValueError(f"Missing columns: {missing}")
+
+    if df[group_col].isna().any():
+        raise ValueError(f"{group_col} contains missing values.")
+
+    values_base = df[value_col].to_numpy(dtype=float)
+
+    if not np.isfinite(values_base).all():
+        raise ValueError(f"{value_col} contains NaN or infinite values.")
+
+    target_mask = np.asarray(target_mask, dtype=bool)
+
+    if len(target_mask) != len(df):
+        raise ValueError("target_mask length does not match df.")
+
+    if not target_mask.any():
+        raise ValueError("Target segment has no listings.")
+
+    # 1. Inject shift into target segment
+    shift_log = np.log1p(shift_pct / 100)
+
+    values_sim = values_base.copy()
+    values_sim[target_mask] += shift_log
+
+    # 2. Identify all eligible segments (n >= MIN_SEGMENT_N)
+    segment_masks = {}
+    segment_info = []
+
+    for (ng, rt), sub in df.groupby(
+        ["neighbourhood_group", "room_type"],
+        sort=True,
+    ):
+        n = len(sub)
+
+        if n < MIN_SEGMENT_N:
+            continue
+
+        mask = (
+            (df["neighbourhood_group"].to_numpy() == ng)
+            & (df["room_type"].to_numpy() == rt)
+        )
+
+        key = (ng, rt)
+        segment_masks[key] = mask
+
+        segment_info.append({
+            "neighbourhood_group": ng,
+            "room_type": rt,
+            "n": n,
+            "n_hosts_segment": df.loc[mask, group_col].nunique(),
+        })
+
+    # 3. Check target belongs to eligible family
+    target_key = (
+        df.loc[target_mask, "neighbourhood_group"].iloc[0],
+        df.loc[target_mask, "room_type"].iloc[0],
+    )
+
+    if target_key not in segment_masks:
+        raise ValueError(
+            f"Target segment {target_key} does not meet MIN_SEGMENT_N."
+        )
+
+    # 4. Full-sample baseline and simulated theta
+    median_base = np.median(values_base)
+    median_sim = np.median(values_sim)
+
+    theta_base = {}
+    theta_sim = {}
+    delta_hat = {}
+
+    for key, mask in segment_masks.items():
+
+        theta_base[key] = (
+            np.median(values_base[mask]) - median_base
+        )
+
+        theta_sim[key] = (
+            np.median(values_sim[mask]) - median_sim
+        )
+
+        delta_hat[key] = (
+            theta_sim[key] - theta_base[key]
+        )
+
+    # 5. Prepare host clusters
+    host_values = df[group_col].to_numpy()
+
+    host_indices = [
+        np.flatnonzero(host_values == host)
+        for host in pd.unique(host_values)
+    ]
+
+    n_hosts = len(host_indices)
+
+    if n_hosts < 2:
+        raise ValueError("Not enough host clusters to bootstrap.")
+
+    rng = np.random.default_rng(seed)
+
+    # Store bootstrap delta for every eligible segment
+    boot_deltas = {
+        key: np.full(B, np.nan)
+        for key in segment_masks
+    }
+
+    # 6. Paired host-cluster bootstrap
+    for b in range(B):
+
+        sampled_hosts = rng.integers(
+            0,
+            n_hosts,
+            size=n_hosts,
+        )
+
+        sampled_indices = np.concatenate([
+            host_indices[j] for j in sampled_hosts
+        ])
+
+        base_b = values_base[sampled_indices]
+        sim_b = values_sim[sampled_indices]
+
+        # Recalculate overall medians using the same sample
+        median_base_b = np.median(base_b)
+        median_sim_b = np.median(sim_b)
+
+        # Calculate paired delta for every eligible segment
+        for key, original_mask in segment_masks.items():
+
+            sampled_mask = original_mask[sampled_indices]
+
+            if not sampled_mask.any():
+                continue
+
+            theta_base_b = (
+                np.median(base_b[sampled_mask])
+                - median_base_b
+            )
+
+            theta_sim_b = (
+                np.median(sim_b[sampled_mask])
+                - median_sim_b
+            )
+
+            boot_deltas[key][b] = (
+                theta_sim_b - theta_base_b
+            )
+
+    # 7. CI and p-value using the RQ3 helper
+    rows = []
+
+    for info in segment_info:
+
+        key = (
+            info["neighbourhood_group"],
+            info["room_type"],
+        )
+
+        boot_delta = boot_deltas[key]
+
+        valid = np.isfinite(boot_delta)
+        valid_rate = valid.mean()
+
+        boot_delta_valid = boot_delta[valid]
+
+        if valid_rate < MIN_VALID_BOOTSTRAP_RATE:
+            ci_low = ci_high = p_value = np.nan
+            inference_status = (
+                "too_many_invalid_bootstrap_replicates"
+            )
+
+        else:
+            ci_low, ci_high, p_value = (
+                basic_bootstrap_ci_and_pvalue(
+                    theta_hat=delta_hat[key],
+                    boot_theta=boot_delta_valid,
+                    alpha=0.05,
+                )
+            )
+
+            if not np.isfinite(p_value):
+                inference_status = "insufficient_valid_bootstrap"
+            else:
+                inference_status = "ok"
+
+        rows.append({
+            **info,
+
+            "is_target_segment": key == target_key,
+            "shift_pct": shift_pct,
+            "shift_log": shift_log,
+
+            "baseline_theta": theta_base[key],
+            "simulated_theta": theta_sim[key],
+            "delta_theta": delta_hat[key],
+
+            "ci_low": ci_low,
+            "ci_high": ci_high,
+            "p_value": p_value,
+
+            "valid_bootstrap_rate": valid_rate,
+            "n_valid_bootstrap": len(boot_delta_valid),
+            "inference_status": inference_status,
+        })
+
+    results_df = pd.DataFrame(rows)
+
+    # 8. Holm correction across valid eligible segments
+    results_df["p_holm"] = np.nan
+    results_df["significant_holm"] = False
+
+    valid_p = (
+        results_df["p_value"].notna()
+        & np.isfinite(results_df["p_value"])
+        & (results_df["inference_status"] == "ok")
+    )
+
+    if valid_p.any():
+
+        reject, p_holm, _, _ = multipletests(
+            results_df.loc[valid_p, "p_value"].to_numpy(),
+            alpha=0.05,
+            method="holm",
+        )
+
+        results_df.loc[valid_p, "p_holm"] = p_holm
+        results_df.loc[valid_p, "significant_holm"] = reject
+
+    # 9. Direction and practical magnitude of paired change
+    results_df["passes_practical_threshold"] = (
+        results_df["delta_theta"].abs()
+        >= PRACTICAL_THRESHOLD
+    )
+
+    # All injected shifts are positive
+    results_df["direction_matches_injection"] = (
+        results_df["delta_theta"] > 0
+    )
+
+    results_df["detected_statistical_directional"] = (
+        results_df["significant_holm"]
+        & results_df["direction_matches_injection"]
+    )
+
+    results_df["detected_full_criteria"] = (
+        results_df["detected_statistical_directional"]
+        & results_df["passes_practical_threshold"]
+    )
+
+    return results_df
+
+
+# ============================================================
+# 8c. SENSITIVITY ANALYSIS — 2 SEGMENTS × 3 SHIFTS × 5 SPLITS
+# ============================================================
+
+SENSITIVITY_TARGETS = [
+    ("Brooklyn", "Entire home/apt"),
+    ("Staten Island", "Private room"),
+]
+
+SENSITIVITY_SHIFTS = [5, 10, 20]
+
+B_SENSITIVITY = B_BOOT  # B_BOOT = 4000
+
+if len(SEEDS) != 5:
+    raise ValueError(
+        f"Expected 5 splits, but received {len(SEEDS)}."
+    )
+
+log("sensitivity: paired host-cluster bootstrap (B = 4000)")
+all_sensitivity_results = []
+
+for split_idx, seed in enumerate(SEEDS):
+
+    print(f"\n========== SEED {seed} ==========")
+
+    # 1. Reconstruct gap_df exactly as in main RQ3
+    test_s = split_models[seed]["test"]
+
+    price_te_raw = np.asarray(
+        split_models[seed]["price_te_raw"]
+    ).reshape(-1)
+
+    pred_log = np.asarray(
+        split_models[seed]["pred_log"]
+    ).reshape(-1)
+
+    if not (
+        len(test_s) == len(price_te_raw) == len(pred_log)
+    ):
+        raise ValueError(
+            f"Seed {seed}: test and prediction lengths mismatch."
+        )
+
+    pred_naive = np.maximum(np.expm1(pred_log), 0)
+
+    gap_df = test_s[
+        [
+            "neighbourhood_group",
+            "room_type",
+            "host_id",
+        ]
+    ].copy().reset_index(drop=True)
+
+    gap_df["actual_price"] = price_te_raw
+    gap_df["predicted_price"] = pred_naive
+
+    gap_df["D"] = np.log(
+        gap_df["actual_price"].clip(lower=1)
+        / gap_df["predicted_price"].clip(lower=1)
+    )
+
+    if not np.isfinite(gap_df["D"]).all():
+        raise ValueError(
+            f"Seed {seed}: D contains NaN or infinity."
+        )
+
+    # 2. Run each target segment × injected shift
+    for scenario_idx, (ng, rt) in enumerate(
+        SENSITIVITY_TARGETS
+    ):
+
+        target_mask = (
+            (gap_df["neighbourhood_group"].to_numpy() == ng)
+            & (gap_df["room_type"].to_numpy() == rt)
+        )
+
+        target_n = int(target_mask.sum())
+
+        if target_n < MIN_SEGMENT_N:
+            raise ValueError(
+                f"Seed {seed}: target {(ng, rt)} has "
+                f"only {target_n} listings."
+            )
+
+        for shift_pct in SENSITIVITY_SHIFTS:
+
+            print(
+                f"Seed {seed} | {ng} - {rt} | "
+                f"+{shift_pct}% | n={target_n}"
+            )
+
+            scenario_seed = (
+                42
+                + split_idx * 10000
+                + scenario_idx * 1000
+                + shift_pct
+            )
+
+            scenario_results = (
+                paired_host_cluster_sensitivity(
+                    df=gap_df,
+                    target_mask=target_mask,
+                    shift_pct=shift_pct,
+                    value_col="D",
+                    group_col="host_id",
+                    B=B_SENSITIVITY,
+                    seed=scenario_seed,
+                )
+            )
+
+            scenario_results["seed"] = seed
+            scenario_results["target_neighbourhood"] = ng
+            scenario_results["target_room_type"] = rt
+
+            all_sensitivity_results.append(
+                scenario_results
+            )
+
+# Combine all splits and scenarios
+sensitivity_results = pd.concat(
+    all_sensitivity_results,
+    ignore_index=True,
+)
+
+print("\nSensitivity analysis completed.")
+print("Total rows:", len(sensitivity_results))
+log("sensitivity analysis finished")
+
+
+# ============================================================
+# 8d. SUMMARY — TARGET SEGMENTS ONLY
+# ============================================================
+
+target_results = sensitivity_results[
+    sensitivity_results["is_target_segment"]
+].copy()
+
+# Detailed results: each target × shift × split
+detail_columns = [
+    "seed",
+    "target_neighbourhood",
+    "target_room_type",
+    "shift_pct",
+    "n",
+    "baseline_theta",
+    "simulated_theta",
+    "delta_theta",
+    "ci_low",
+    "ci_high",
+    "p_value",
+    "p_holm",
+    "valid_bootstrap_rate",
+    "significant_holm",
+    "direction_matches_injection",
+    "passes_practical_threshold",
+    "detected_full_criteria",
+]
+
+sensitivity_detail = (
+    target_results[detail_columns]
+    .sort_values([
+        "target_neighbourhood",
+        "target_room_type",
+        "shift_pct",
+        "seed",
+    ])
+    .reset_index(drop=True)
+)
+
+print("\n=== SENSITIVITY: target segment detail ===")
+print(sensitivity_detail.round(4).to_string(index=False))
+
+# Aggregate across 5 splits
+sensitivity_summary = (
+    target_results
+    .groupby(
+        [
+            "target_neighbourhood",
+            "target_room_type",
+            "shift_pct",
+        ],
+        as_index=False,
+    )
+    .agg(
+        mean_baseline_theta=("baseline_theta", "mean"),
+        mean_simulated_theta=("simulated_theta", "mean"),
+        mean_delta_theta=("delta_theta", "mean"),
+
+        positive_direction_splits=(
+            "direction_matches_injection", "sum"
+        ),
+
+        significant_directional_splits=(
+            "detected_statistical_directional", "sum"
+        ),
+
+        practical_threshold_splits=(
+            "passes_practical_threshold", "sum"
+        ),
+
+        full_criteria_splits=(
+            "detected_full_criteria", "sum"
+        ),
+
+        valid_splits=(
+            "inference_status",
+            lambda x: (x == "ok").sum(),
+        ),
+    )
+)
+
+sensitivity_summary["direction_consistent_3_of_5"] = (
+    sensitivity_summary["positive_direction_splits"] >= 3
+)
+
+sensitivity_summary["full_criteria_3_of_5"] = (
+    sensitivity_summary["full_criteria_splits"] >= 3
+)
+
+print("\n=== SENSITIVITY: 5-split summary (target segments) ===")
+print(sensitivity_summary.round(4).to_string(index=False))
+
+save_table(sensitivity_results, "sensitivity_all_segments_by_split.csv", TABLE_PATH)
+save_table(sensitivity_detail, "sensitivity_target_detail_by_split.csv", TABLE_PATH)
+save_table(sensitivity_summary, "sensitivity_target_summary_5_splits.csv", METRIC_PATH)
+
+
+# ============================================================
 # 9. HOST-TYPE ANALYSIS: MULTI-HOST vs SINGLE-HOST
-#    (notebook cells 112-119)
 # ============================================================
 # host_type = 'multi' if calculated_host_listings_count > 1 else 'single'.
 # Estimand: median(D_multi) - median(D_single); hosts are resampled with
 # replacement separately inside each group, keeping all listings of a host.
 
-# ---- 9.1 Overall comparison, one bootstrap per split (cell 112) ----
-log("host type: overall comparison (B = 2000)")
+# ---- 9.1 Overall comparison, one bootstrap per split ----
+log("host type: overall comparison (B = 4000)")
 
-B = 2000
+B = 4000
 BASE_BOOTSTRAP_SEED = 42
 
 # The five seeds in ascending order (this order sets the RNG seed offset).
@@ -1125,7 +1635,7 @@ host_type_results = pd.DataFrame(results_host_type)
 print('\n=== HOST TYPE: MULTI-HOST - SINGLE-HOST ===')
 print(host_type_results.round(4).to_string(index=False))
 
-# ---- 9.2 Consistency summary across the five seeds (cell 115) ----
+# ---- 9.2 Consistency summary across the five seeds ----
 host_type_consistency = {
     'mean_observed_difference': round(float(host_type_results['diff_multi_minus_single'].mean()), 4),
     'median_observed_difference': round(float(host_type_results['diff_multi_minus_single'].median()), 4),
@@ -1143,9 +1653,8 @@ with open(os.path.join(METRIC_PATH, "host_type_overall_consistency.json"), "w", 
     json.dump(host_type_consistency, fh, indent=2)
 log("saved outputs/metrics/host_type_overall_consistency.json")
 
-# ---- 9.3 Forest plot: overall difference per seed (cell 114) ----
-# The notebook typed these numbers in by hand (rounded to 4 decimals);
-# here they come straight from host_type_results (same values, unrounded).
+# ---- 9.3 Forest plot: overall difference per seed ----
+# Values come straight from host_type_results.
 seed_labels = [str(s) for s in host_type_results['seed']]
 diff = host_type_results['diff_multi_minus_single'].to_numpy()
 ci_low_arr = host_type_results['ci95_low'].to_numpy()
@@ -1220,10 +1729,10 @@ plt.savefig(
 plt.close(fig)
 log("saved outputs/figures/host_type_forest_plot.png")
 
-# ---- 9.4 Host type within each room type (cell 116) ----
-log("host type: within each room type (B = 2000)")
+# ---- 9.4 Host type within each room type ----
+log("host type: within each room type (B = 4000)")
 
-B_HOST = 2000
+B_HOST = 4000
 BASE_HOST_SEED = 20261029
 MIN_HOSTS_PER_GROUP = 2
 
@@ -1418,7 +1927,7 @@ print(
     host_type_room_df.sort_values(["room_type", "seed"]).round(4).to_string(index=False)
 )
 
-# ---- 9.5 Summary over the five splits (cell 118); CIs are NOT pooled ----
+# ---- 9.5 Summary over the five splits; CIs are NOT pooled ----
 valid_host_results = host_type_room_df[
     host_type_room_df["status"] == "ok"
 ].copy()
@@ -1447,9 +1956,8 @@ print(host_type_room_summary.round(4).to_string(index=False))
 save_table(host_type_room_df, "host_type_by_room_type_by_split.csv", TABLE_PATH)
 save_table(host_type_room_summary, "host_type_by_room_type_summary.csv", METRIC_PATH)
 
-# ---- 9.6 Figure: host-type difference by room type (cell 119) ----
-# The notebook typed mean/SD/CI counts in by hand; here they come from
-# host_type_room_summary (same values, unrounded).
+# ---- 9.6 Figure: host-type difference by room type ----
+# Values come from host_type_room_summary.
 room_types = host_type_room_summary['room_type'].tolist()
 mean_diff = host_type_room_summary['mean_diff'].to_numpy(dtype=float)
 sd_diff = host_type_room_summary['sd_diff'].to_numpy(dtype=float)
@@ -1525,11 +2033,11 @@ log("saved outputs/figures/host_type_by_room_type.png")
 
 # ============================================================
 # 10. RQ1 - FEATURE IMPORTANCE (split seed 42)
-#     (notebook cells 121-124)
+#    
 # ============================================================
 # Lasso (alpha = 1e-4, drop_first=True), Random Forest impurity importance and
 # XGBoost gain importance, all taken from the seed-42 fits of section 6.
-# The notebook typed the Lasso coefficients into cell 122 by hand; here they
+# Lasso coefficients come from the fitted model; here they
 # come straight from the fitted model.
 
 log("RQ1: Lasso coefficients and tree feature importance")
@@ -1554,7 +2062,7 @@ save_table(lasso_coef.rename_axis('Feature').reset_index(name='Lasso_Coefficient
            "rq1_lasso_coefficients.csv", TABLE_PATH)
 save_table(importance_df, "rq1_feature_importance.csv", TABLE_PATH)
 
-# ---- 10.1 Figure: Lasso coefficients (cell 122) ----
+# ---- 10.1 Figure: Lasso coefficients ----
 coefs_sorted = lasso_coef.sort_values(key=abs, ascending=True)
 
 fig, ax = plt.subplots(figsize=(10, 10), dpi=300)
@@ -1578,12 +2086,11 @@ for bar in bars:
             f'{width:.4f}', ha=align, va='center', fontsize=7)
 
 plt.tight_layout()
-# The notebook has this savefig commented out; the file name is taken from it.
 plt.savefig(os.path.join(FIGURE_PATH, 'lasso_coefficients.png'), dpi=300, bbox_inches='tight')
 plt.close(fig)
 log("saved outputs/figures/lasso_coefficients.png")
 
-# ---- 10.2 Figure: top-20 RF / XGBoost importance (cell 124) ----
+# ---- 10.2 Figure: top-20 RF / XGBoost importance ----
 top20_rf = importance_df.sort_values('RF_Importance', ascending=False).head(20).sort_values('RF_Importance', ascending=True)
 top20_xgb = importance_df.sort_values('XGB_Importance', ascending=False).head(20).sort_values('XGB_Importance', ascending=True)
 
@@ -1602,7 +2109,6 @@ axes[1].tick_params(axis='both', labelsize=10)
 axes[1].grid(axis='x', linestyle='--', alpha=0.5)
 
 plt.tight_layout()
-# The notebook has this savefig commented out; the file name is taken from it.
 plt.savefig(os.path.join(FIGURE_PATH, 'RQ1_Feature_Importance2.png'), dpi=300, bbox_inches='tight')
 plt.close(fig)
 log("saved outputs/figures/RQ1_Feature_Importance2.png")
@@ -1610,7 +2116,7 @@ log("saved outputs/figures/RQ1_Feature_Importance2.png")
 
 # ============================================================
 # 11. GROUPKFOLD vs STRATIFIEDKFOLD AND SMEARING FACTOR
-#     (notebook cells 98-102)
+#    
 # ============================================================
 # Everything here uses the TRAIN part of the first split (seed = SEEDS[0] = 42):
 #   * StratifiedKFold(5, shuffle=True, random_state=42) on 10 price bins of train
@@ -1663,7 +2169,7 @@ def run_cv_scheme(scheme, splits, collect_residuals):
 run_cv_scheme('StratifiedKFold', skf0.split(train_full0, price_bins0), collect_residuals=True)
 run_cv_scheme('GroupKFold', gkf.split(train_full0, groups=train_full0['host_id']), collect_residuals=False)
 
-# ---- 11.1 Smearing factor (cell 98) ----
+# ---- 11.1 Smearing factor ----
 residuals_oof = np.concatenate(residuals_oof)
 smearing_factor = np.mean(np.exp(residuals_oof))
 print(f'\nSmearing factor S = {smearing_factor:.4f}')
@@ -1677,7 +2183,7 @@ with open(os.path.join(METRIC_PATH, "smearing_factor.json"), "w", encoding="utf-
     }, fh, indent=2)
 log("saved outputs/metrics/smearing_factor.json")
 
-# ---- 11.2 GroupKFold vs StratifiedKFold summary (cells 99-102) ----
+# ---- 11.2 GroupKFold vs StratifiedKFold summary ----
 cv_fold_df = pd.DataFrame(cv_fold_rows)
 save_table(cv_fold_df, "groupkfold_vs_stratifiedkfold_fold_mae.csv", TABLE_PATH)
 
@@ -1709,7 +2215,7 @@ save_table(groupkfold_summary, "groupkfold_vs_stratifiedkfold_summary.csv", METR
 
 # ============================================================
 # 12. CALIBRATION - MEDIAN PREDICTION AND SMEARING-CORRECTED MEAN PREDICTION
-#     (notebook cells 126-127)
+#    
 # ============================================================
 # The model predicts log1p(price).
 #   median prediction : naive back-transform  expm1(pred_log)
@@ -1799,6 +2305,11 @@ run_metadata = {
         "min_valid_bootstrap_rate": MIN_VALID_BOOTSTRAP_RATE,
         "holm_alpha": 0.05,
         "min_splits_same_direction": 3,
+    },
+    "sensitivity": {
+        "B_boot": B_SENSITIVITY,
+        "targets": [list(t) for t in SENSITIVITY_TARGETS],
+        "shifts_pct": SENSITIVITY_SHIFTS,
     },
     "host_type": {"B_overall": B, "B_by_room_type": B_HOST},
     "smearing_factor": float(smearing_factor),
