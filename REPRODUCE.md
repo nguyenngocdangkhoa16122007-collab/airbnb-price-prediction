@@ -480,7 +480,7 @@ The experiments were conducted using Google Colab. The actual execution environm
 - CPU: x86_64.
 - Available RAM: Approximately 12.67 GB in the recorded execution environment.
 - GPU: Not used; all experiments were executed on CPU.
-- Total execution time: approximately 4,600 seconds for `reproduce.py`.
+- Total execution time: approximately 5,300 seconds for `reproduce.py`.
 
 ---
 ## 8. Evaluation and Inference
