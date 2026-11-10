@@ -509,7 +509,7 @@ The experiments were conducted using Google Colab. The actual execution environm
 - CPU: x86_64.
 - Available RAM: Approximately 12.67 GB in the recorded execution environment.
 - GPU: Not used; all experiments were executed on CPU.
-- Total execution time: approximately 5,300 seconds for `reproduce.py` (may increase after inclusion of the sensitivity analysis with B = 4000).
+- Total execution time: approximately 5,300 seconds for `reproduce.py`.
 
 ---
 ## 8. Evaluation and Inference
@@ -656,7 +656,7 @@ No specific installation or execution errors have been documented during the pre
 
 ### 11.3. Known Numerical Differences
 
-The GroupKFold results may differ slightly from those reported in the manuscript. The reproduced mean MAE was approximately $55.09, compared with $55.15 in the reported results. The corresponding standard deviations were $3.75 and $3.70, respectively.
+The GroupKFold results may differ slightly from those reported in the manuscript. The reproduced mean MAE was approximately $55.15, compared with $55.09 in the reported results. The corresponding standard deviations were $3.70 and $3.75, respectively.
 
 These differences are small in magnitude and do not materially change the interpretation of the generalization analysis. Nevertheless, the reproduced values should be distinguished from the originally reported values rather than treated as exact matches.
 
