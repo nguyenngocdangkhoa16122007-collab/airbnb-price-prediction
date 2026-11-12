@@ -29,9 +29,9 @@ The study evaluates predictive performance and examines model-relative price dev
 ## Repository
 
 - **GitHub Repository:** https://github.com/nguyenngocdangkhoa16122007-collab/airbnb-price-prediction
-- **Paper Version:** [TODO: Final paper version]
-- **Repository Version / Commit:** [TODO: Commit hash or release tag]
-- **Last Updated:** [TODO: Date]
+- **Paper Version:** v8.3
+- **Repository Version / Commit:** 9aa5498a691b17e4ddba7e208d857bcf31f77906
+- **Last Updated:** 12/11/2026
 
 ---
 # 1. Quick Start
